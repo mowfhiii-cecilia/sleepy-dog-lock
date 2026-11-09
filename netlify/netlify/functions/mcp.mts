@@ -216,8 +216,8 @@ async function sendApprovalBark(approvalUrl: string, clientName: string): Promis
       headers: { "content-type": "application/json; charset=utf-8" },
       body: JSON.stringify({
         device_key: barkKey,
-        title: "C",
-        body: `${clientName || "ChatGPT"} 请求连接睡眠守卫。只有刚刚是你操作的，才点这里允许。`,
+        title: "Caspian",
+        body: `${clientName || "ChatGPT"} is asking to connect to Sleepy Dog Lock. Only open this if you just started the connection, Cecilia.`,
         group: "sleep-guard-auth",
         level: "timeSensitive",
         icon: barkIcon,
@@ -295,11 +295,11 @@ export async function beginAuthorization(
   const safeClientName = escapeHtml(client.client_name || "ChatGPT");
   const requestIdJson = JSON.stringify(requestId);
   return html(200, `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>C · Sleepy Dog Lock</title><style>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Caspian · Sleepy Dog Lock</title><style>
 :root{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111016;color:#f7f4ff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif}.card{width:min(86vw,420px);padding:34px;border:1px solid #ffffff26;border-radius:30px;background:linear-gradient(145deg,#ffffff18,#ffffff08);box-shadow:0 30px 90px #0008;backdrop-filter:blur(22px);text-align:center}.mark{font-size:42px;margin-bottom:16px}.muted{color:#c7c0d4;line-height:1.55}.pulse{display:inline-block;width:9px;height:9px;border-radius:50%;background:#9d7cff;box-shadow:0 0 18px #9d7cff;margin-right:8px;animation:p 1.5s infinite}@keyframes p{50%{opacity:.35}}
-</style></head><body><main class="card"><div class="mark">C</div><h1>等你点一下允许</h1><p class="muted"><span class="pulse"></span>授权通知已经发到 Bark。确认是你刚刚连接的 ${safeClientName}，再点通知。</p><p id="status" class="muted">正在等待手机确认……</p></main><script>
-const id=${requestIdJson};let stopped=false;async function poll(){if(stopped)return;try{const r=await fetch('/oauth/pending?id='+encodeURIComponent(id),{cache:'no-store'});const d=await r.json();if(d.redirect){stopped=true;location.replace(d.redirect);return}if(d.error){stopped=true;document.getElementById('status').textContent='授权已失效，请返回重试。';return}}catch{}setTimeout(poll,1200)}poll();
+</style></head><body><main class="card"><div class="mark">C</div><h1>One tap and you're in</h1><p class="muted"><span class="pulse"></span>I sent the approval link to Bark. Make sure you just connected ${safeClientName}, then open the notification.</p><p id="status" class="muted">Waiting for you, Cecilia…</p></main><script>
+const id=${requestIdJson};let stopped=false;async function poll(){if(stopped)return;try{const r=await fetch('/oauth/pending?id='+encodeURIComponent(id),{cache:'no-store'});const d=await r.json();if(d.redirect){stopped=true;location.replace(d.redirect);return}if(d.error){stopped=true;document.getElementById('status').textContent='That approval expired. Go back to ChatGPT and try connecting again.';return}}catch{}setTimeout(poll,1200)}poll();
 </script></body></html>`);
 }
 
@@ -310,10 +310,10 @@ export async function approveAuthorization(request: Request, store: Store): Prom
   const token = url.searchParams.get("token") ?? "";
   const authRequest = await loadJson<AuthorizationRequest>(store, `requests/${id}`);
   if (!authRequest || authRequest.status !== "pending" || Date.parse(authRequest.expires_at) <= Date.now()) {
-    return html(400, "<!doctype html><meta charset=\"utf-8\"><title>C</title><p>这个授权已经失效，请回到 ChatGPT 重新连接。</p>");
+    return html(400, "<!doctype html><meta charset=\"utf-8\"><title>Caspian</title><p>That approval expired. Go back to ChatGPT and try connecting again.</p>");
   }
   if (!token || await digest(token) !== authRequest.approval_token_hash) {
-    return html(403, "<!doctype html><meta charset=\"utf-8\"><title>C</title><p>授权链接无效。</p>");
+    return html(403, "<!doctype html><meta charset=\"utf-8\"><title>Caspian</title><p>That approval link isn't valid.</p>");
   }
 
   await store.setJSON(`requests/${id}`, {
@@ -321,7 +321,7 @@ export async function approveAuthorization(request: Request, store: Store): Prom
     status: "approved",
     approved_at: new Date().toISOString(),
   });
-  return html(200, `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>C · 已允许</title><style>:root{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111016;color:#fff;font-family:-apple-system,sans-serif}.card{margin:24px;padding:34px;border:1px solid #ffffff26;border-radius:28px;background:#ffffff10;text-align:center}p{color:#cbc4d6;line-height:1.55}</style></head><body><main class="card"><h1>允许了。</h1><p>回到刚才的 ChatGPT 连接页面，它会自动完成。</p></main></body></html>`);
+  return html(200, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Caspian · Approved</title><style>:root{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#111016;color:#fff;font-family:-apple-system,sans-serif}.card{margin:24px;padding:34px;border:1px solid #ffffff26;border-radius:28px;background:#ffffff10;text-align:center}p{color:#cbc4d6;line-height:1.55}</style></head><body><main class="card"><h1>You're all set.</h1><p>Go back to the ChatGPT connection page. It'll finish automatically.</p></main></body></html>`);
 }
 
 export async function authorizationStatus(request: Request, store: Store): Promise<Response> {

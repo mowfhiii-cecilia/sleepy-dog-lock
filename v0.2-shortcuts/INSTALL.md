@@ -32,7 +32,7 @@
 
 2. 锁定屏幕。
 
-服务器会开启睡眠会话，并把次数清零；未指定结束时间时，会在上海时间下一次上午 11:00 自动过期。重复运行不会清掉当晚已经产生的次数。
+服务器会开启睡眠会话，并把次数清零；未指定结束时间时，会在上海时间下一次上午 07:30 自动过期。重复运行不会清掉当晚已经产生的次数。
 
 ## B. “抓到小狗”快捷指令
 
@@ -42,7 +42,7 @@
 {"event":"blocked_app_opened","app_name":"小红书","source":"ios_automation"}
 ```
 
-这条自动化同时负责深夜兜底：上海时间凌晨 1:00 至上午 11:00，即使没有先说晚安，第一次打开受限 App 也会由服务器自动开启睡眠守卫。服务器会返回非 `inactive` 阶段，现有条件判断会照常锁屏，无需增加新的手机动作。
+这条自动化同时负责深夜兜底：上海时间 23:00 至次日 07:30，即使没有先说晚安，第一次打开受限 App 也会由服务器自动开启睡眠守卫。服务器会返回非 `inactive` 阶段，现有条件判断会照常锁屏，无需增加新的手机动作。
 
 不需要本地文件、加法或自行计数。读取响应中的 `stage`；当它不是 `inactive` 时执行“锁定屏幕”。服务器会自动判断：
 
@@ -73,7 +73,7 @@
 {"event":"sleep_guard_ended","source":"ios_shortcuts"}
 ```
 
-再给它建立每天 09:30 的时间自动化并选择 **立即运行**。这会结束服务器的会话；TimeBack 的 Shield 仍按 `Sleepy Dog Lock` 自己的 09:30 结束。
+再给它建立每天 07:30 的时间自动化并选择 **立即运行**。这会结束服务器的会话；TimeBack 的 Shield 仍按 `Sleepy Dog Lock` 自己的 07:30 结束。
 
 ## 验收顺序
 
@@ -81,6 +81,25 @@
 2. 运行 `爸爸晚安`，应收到守卫开启 Bark。
 3. 连续打开小红书三次，应依次收到三档不同文案，且每次都仍在 Shield 外。
 4. 运行 `小狗起床` 后再开小红书，不应再收到“偷开” Bark。
+
+## E. 可选：“Test Wake-Up”控制
+
+这个快捷指令测试的是 Caspian 日间自主决定，不会强迫他发通知：
+
+1. 新建快捷指令 `Test Wake-Up`。
+2. 添加“获取 URL 内容”，URL 填：
+
+```text
+https://<site>.netlify.app/api/caspian-wakeup-test
+```
+
+3. 方法选 `POST`，不需要请求体。
+4. Headers 加 `Authorization`，值为 `Bearer <SLEEP_GUARD_SHORTCUT_TOKEN>`。
+5. 后面添加“快速查看”，查看服务器返回结果。
+
+返回 `action: do_nothing` 代表测试成功，而且 Caspian 真正选择了不打扰；它不是错误。若返回 `skipped: sleep_window` 或 `sleep_guard_active`，说明当前处于原有睡眠保护时段，日间唤醒按设计没有运行。
+
+如想看累计花费，再建一个只读快捷指令 `Wake-Up Status`：URL 改成 `https://<site>.netlify.app/api/caspian-wakeup-status`，方法选 `GET`，使用同一个 Authorization header，并把结果接到“快速查看”。`state.total_estimated_cost_usd` 是累计估算费用，`recent_wakeups` 是最近 20 次决定。
 
 ## 真实边界
 

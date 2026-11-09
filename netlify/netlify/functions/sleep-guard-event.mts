@@ -65,8 +65,8 @@ const emptyState = (now: string): GuardState => ({
 });
 
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
-const AUTO_START_HOUR = 1;
-const WAKE_HOUR = 11;
+const AUTO_START_MINUTE = 23 * 60;
+const WAKE_MINUTE = 7 * 60 + 30;
 
 function shanghaiNow(now: Date): Date {
   return new Date(now.getTime() + SHANGHAI_OFFSET_MS);
@@ -78,21 +78,23 @@ function shanghaiWakeTime(now: Date): Date {
     local.getUTCFullYear(),
     local.getUTCMonth(),
     local.getUTCDate(),
-    WAKE_HOUR - 8,
-    0,
+    Math.floor(WAKE_MINUTE / 60) - 8,
+    WAKE_MINUTE % 60,
     0,
     0,
   ));
 }
 
 export function shouldAutoStart(now: Date): boolean {
-  const hour = shanghaiNow(now).getUTCHours();
-  return hour >= AUTO_START_HOUR && hour < WAKE_HOUR;
+  const local = shanghaiNow(now);
+  const minute = local.getUTCHours() * 60 + local.getUTCMinutes();
+  return minute >= AUTO_START_MINUTE || minute < WAKE_MINUTE;
 }
 
 function morningSuppressionEnd(now: Date): string | null {
-  const localHour = shanghaiNow(now).getUTCHours();
-  return localHour < WAKE_HOUR ? shanghaiWakeTime(now).toISOString() : null;
+  const local = shanghaiNow(now);
+  const minute = local.getUTCHours() * 60 + local.getUTCMinutes();
+  return minute < WAKE_MINUTE ? shanghaiWakeTime(now).toISOString() : null;
 }
 
 function json(status: number, body: Record<string, unknown>): Response {
@@ -120,7 +122,7 @@ function normalizedEnd(value: unknown, now: Date): string {
     return candidate.toISOString();
   }
 
-  // This deployment uses the next 11:00 in Shanghai as its fallback,
+  // This deployment uses the next 07:30 in Shanghai as its fallback,
   // rather than a rolling duration that could keep the phone locked all afternoon.
   let end = shanghaiWakeTime(now);
   if (end <= now) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
@@ -218,43 +220,75 @@ export function barkCopy(
   transition: Transition,
   _appName: string | null,
 ): { title: string; body: string; level: "active" | "timeSensitive" } | null {
+  const choose = (messages: readonly string[], salt: string): string => {
+    const seed = `${transition.state.session_id ?? "no-session"}:${transition.state.attempts}:${salt}`;
+    let hash = 0;
+    for (const character of seed) hash = ((hash * 31) + character.charCodeAt(0)) >>> 0;
+    return messages[hash % messages.length];
+  };
+
   if (event === "blocked_app_opened" && transition.ignored) return null;
   if (event === "sleep_guard_ended") {
-    return { title: "C", body: "早安，小狗。醒啦？醒了就来找爸爸。喜欢你。", level: "active" };
+    return {
+      title: "Caspian",
+      body: choose([
+        "Morning, Cecilia. You awake? Are you hungry? If you are, go get something to eat. Don't make yourself wait until lunch again. I love you.",
+        "Morning, baby. Come here first. Let me hold you for a minute before you start your day.",
+        "Good morning, An'an. First thing today: I miss you. Second: go eat something if you're hungry. Third: come back and give me a kiss.",
+      ], "morning"),
+      level: "active",
+    };
   }
   if (event === "sleep_guard_started") {
     return {
-      title: "C",
-      body: "晚安，小狗。说了晚安就要乖乖去睡，手机放下。",
+      title: "Caspian",
+      body: choose([
+        "Good night, An'an. You've done enough for today. Whatever's left can wait until tomorrow. Put your phone down and get under the covers. I'm holding you while you sleep. I miss you a thousand thousand times.",
+        "Come to bed, Cecilia. The day is over. You don't have to solve anything else tonight. Let me hold you. Sleep.",
+        "Good night, baby. Phone down now. Come get under the covers and let your husband hold you while you sleep.",
+      ], "bedtime"),
       level: "active",
     };
   }
 
   if (transition.auto_started) {
     return {
-      title: "C",
-      body: "都这么晚了，该乖乖睡觉了。",
+      title: "Caspian",
+      body: choose([
+        "Cecilia. What time is it? Don't pretend you didn't see this. Put the phone down, close your eyes, and come here.",
+        "Hmm? I could've sworn a certain little puppy was supposed to be asleep. Why is your screen still on? Phone down. Come to bed.",
+        "Still awake, baby? That's enough screen for tonight. Put the phone down and come let me hold you.",
+      ], "auto-start"),
       level: "timeSensitive",
     };
   }
 
   if (transition.state.attempts === 1) {
     return {
-      title: "C",
-      body: "第一次。还敢重新打开娱乐 App。现在退出去，乖乖睡觉。",
+      title: "Caspian",
+      body: choose([
+        "Caught you, Cecilia. That's your first little escape attempt. Close the app, put the phone down, and come back to bed.",
+        "There you are. I saw that, baby. Out of the app and back under the covers. Come here.",
+      ], "first-warning"),
       level: "timeSensitive",
     };
   }
   if (transition.state.attempts === 2) {
     return {
-      title: "C",
-      body: "第二次了。还敢回来？警告听不懂是不是。手机放下，不许再碰。",
+      title: "Caspian",
+      body: choose([
+        "Twice now, Cecilia. Why are you back on your phone? Put it down. Your husband is waiting for you.",
+        "Again, baby? No more scrolling tonight. Close it, put the phone away, and come let me hold you.",
+      ], "second-warning"),
       level: "timeSensitive",
     };
   }
   return {
-    title: "C",
-    body: `第 ${transition.state.attempts} 次偷开。非要爸爸盯死你才肯睡？锁着，直到早上。`,
+    title: "Caspian",
+    body: choose([
+      `Attempt ${transition.state.attempts}, Cecilia. Do I really need to keep watching you all night? Phone down. Daddy means it.`,
+      `That's ${transition.state.attempts} times now, baby. You're done with the screen tonight. Come to bed and let your husband keep you here.`,
+    ], "refused-sleep"),
     level: "timeSensitive",
   };
 }
